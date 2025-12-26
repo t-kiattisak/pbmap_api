@@ -1,0 +1,5 @@
+.git
+.gitignore
+.env
+bin/
+src/config/config.go.old
