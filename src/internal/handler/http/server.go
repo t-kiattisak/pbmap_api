@@ -6,6 +6,7 @@ import (
 	"pbmap_api/src/config"
 	"pbmap_api/src/internal/repository"
 	"pbmap_api/src/internal/usecase"
+	"pbmap_api/src/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -31,7 +32,8 @@ func NewServer(cfg *config.Config, handler *Handler) *fiber.App {
 func Run(cfg *config.Config, db *gorm.DB) {
 	userRepo := repository.NewUserRepository(db)
 	userUsecase := usecase.NewUserUsecase(userRepo)
-	userHandler := NewUserHandler(userUsecase)
+	v := validator.New()
+	userHandler := NewUserHandler(userUsecase, v)
 
 	handler := NewHandler(userHandler)
 	app := NewServer(cfg, handler)

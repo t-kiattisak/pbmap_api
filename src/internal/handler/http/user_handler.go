@@ -2,27 +2,48 @@ package http
 
 import (
 	"pbmap_api/src/domain"
+	"pbmap_api/src/internal/dto"
 	"pbmap_api/src/internal/usecase"
+
+	"pbmap_api/src/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 type UserHandler struct {
-	usecase usecase.UserUsecase
+	usecase   usecase.UserUsecase
+	validator *validator.Wrapper
 }
 
-func NewUserHandler(usecase usecase.UserUsecase) *UserHandler {
-	return &UserHandler{usecase}
+func NewUserHandler(usecase usecase.UserUsecase, v *validator.Wrapper) *UserHandler {
+	return &UserHandler{
+		usecase:   usecase,
+		validator: v,
+	}
 }
 
 func (h *UserHandler) Create(c *fiber.Ctx) error {
-	var user domain.User
-	if err := c.BodyParser(&user); err != nil {
+	var req dto.CreateUserRequest
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
 			Status:  fiber.StatusBadRequest,
 			Message: err.Error(),
 		})
+	}
+
+	if errors := h.validator.Validate(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+			Status:  fiber.StatusBadRequest,
+			Message: "Validation failed",
+			Data:    errors,
+		})
+	}
+
+	user := domain.User{
+		Email:       &req.Email,
+		DisplayName: req.DisplayName,
+		Role:        req.Role,
 	}
 
 	if err := h.usecase.CreateUser(&user); err != nil {
