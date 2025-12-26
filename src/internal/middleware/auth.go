@@ -36,7 +36,6 @@ func Protected(jwtService *auth.JWTService) fiber.Handler {
 			})
 		}
 
-		// Store user info in context locals
 		c.Locals("user_id", tokenDetails.UserID)
 		c.Locals("role", tokenDetails.Role)
 

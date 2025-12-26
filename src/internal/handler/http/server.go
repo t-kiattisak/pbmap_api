@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"pbmap_api/src/config"
+	"pbmap_api/src/internal/middleware"
 	"pbmap_api/src/internal/repository"
 	"pbmap_api/src/internal/usecase"
 	"pbmap_api/src/pkg/auth"
@@ -13,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewServer(cfg *config.Config, handler *Handler) *fiber.App {
+func NewServer(cfg *config.Config, handler *Handler, jwtService *auth.JWTService) *fiber.App {
 	app := fiber.New()
 
 	api := app.Group("/api")
@@ -23,6 +24,7 @@ func NewServer(cfg *config.Config, handler *Handler) *fiber.App {
 	users := api.Group("/users")
 	users.Post("/", handler.UserHandler.Create)
 	users.Get("/", handler.UserHandler.List)
+	users.Get("/me", middleware.Protected(jwtService), handler.UserHandler.Me)
 	users.Get("/:id", handler.UserHandler.Get)
 	users.Put("/:id", handler.UserHandler.Update)
 	users.Delete("/:id", handler.UserHandler.Delete)
@@ -38,7 +40,7 @@ func Run(cfg *config.Config, db *gorm.DB) {
 	userHandler := NewUserHandler(userUsecase, v, jwtService)
 
 	handler := NewHandler(userHandler)
-	app := NewServer(cfg, handler)
+	app := NewServer(cfg, handler, jwtService)
 
 	addr := fmt.Sprintf(":%d", cfg.AppPort)
 	if err := app.Listen(addr); err != nil {

@@ -155,3 +155,27 @@ func (h *UserHandler) List(c *fiber.Ctx) error {
 		Data:    users,
 	})
 }
+
+func (h *UserHandler) Me(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uuid.UUID)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(domain.APIResponse{
+			Status:  fiber.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
+	}
+
+	user, err := h.usecase.GetUser(c.UserContext(), userID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(domain.APIResponse{
+			Status:  fiber.StatusNotFound,
+			Message: "User not found",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(domain.APIResponse{
+		Status:  fiber.StatusOK,
+		Message: "Current user retrieved successfully",
+		Data:    user,
+	})
+}
