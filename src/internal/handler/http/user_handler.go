@@ -4,7 +4,7 @@ import (
 	"pbmap_api/src/domain"
 	"pbmap_api/src/internal/dto"
 	"pbmap_api/src/internal/usecase"
-
+	"pbmap_api/src/pkg/auth"
 	"pbmap_api/src/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,14 +12,16 @@ import (
 )
 
 type UserHandler struct {
-	usecase   usecase.UserUsecase
-	validator *validator.Wrapper
+	usecase    usecase.UserUsecase
+	validator  *validator.Wrapper
+	jwtService *auth.JWTService
 }
 
-func NewUserHandler(usecase usecase.UserUsecase, v *validator.Wrapper) *UserHandler {
+func NewUserHandler(usecase usecase.UserUsecase, v *validator.Wrapper, jwtService *auth.JWTService) *UserHandler {
 	return &UserHandler{
-		usecase:   usecase,
-		validator: v,
+		usecase:    usecase,
+		validator:  v,
+		jwtService: jwtService,
 	}
 }
 

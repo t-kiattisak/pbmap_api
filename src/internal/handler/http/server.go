@@ -6,6 +6,7 @@ import (
 	"pbmap_api/src/config"
 	"pbmap_api/src/internal/repository"
 	"pbmap_api/src/internal/usecase"
+	"pbmap_api/src/pkg/auth"
 	"pbmap_api/src/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,7 +34,8 @@ func Run(cfg *config.Config, db *gorm.DB) {
 	userRepo := repository.NewUserRepository(db)
 	userUsecase := usecase.NewUserUsecase(userRepo)
 	v := validator.New()
-	userHandler := NewUserHandler(userUsecase, v)
+	jwtService := auth.NewJWTService(cfg.JWTSecret)
+	userHandler := NewUserHandler(userUsecase, v, jwtService)
 
 	handler := NewHandler(userHandler)
 	app := NewServer(cfg, handler)
