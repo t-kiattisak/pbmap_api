@@ -6,15 +6,16 @@ import (
 )
 
 type Config struct {
-	AppPort   int
-	DBHost    string
-	DBUser    string
-	DBPass    string
-	DBName    string
-	DBPort    string
-	DBSSL     string
-	DBZone    string
-	JWTSecret string
+	AppPort                 int
+	DBHost                  string
+	DBUser                  string
+	DBPass                  string
+	DBName                  string
+	DBPort                  string
+	DBSSL                   string
+	DBZone                  string
+	JWTSecret               string
+	FirebaseCredentialsPath string
 }
 
 func LoadConfig() *Config {
@@ -25,15 +26,16 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		AppPort:   port,
-		DBHost:    getEnv("DB_HOST", "localhost"),
-		DBUser:    getEnv("DB_USER", "postgres"),
-		DBPass:    getEnv("DB_PASS", "password"),
-		DBName:    getEnv("DB_NAME", "pbmap_db"),
-		DBPort:    getEnv("DB_PORT", "5432"),
-		DBSSL:     getEnv("DB_SSL", "disable"),
-		DBZone:    getEnv("DB_ZONE", "Asia/Bangkok"),
-		JWTSecret: getEnv("JWT_SECRET", "super-secret-key"),
+		AppPort:                 port,
+		DBHost:                  getEnv("DB_HOST", "localhost"),
+		DBUser:                  getEnv("DB_USER", "postgres"),
+		DBPass:                  getEnv("DB_PASS", "password"),
+		DBName:                  getEnv("DB_NAME", "pbmap_db"),
+		DBPort:                  getEnv("DB_PORT", "5432"),
+		DBSSL:                   getEnv("DB_SSL", "disable"),
+		DBZone:                  getEnv("DB_ZONE", "Asia/Bangkok"),
+		JWTSecret:               getEnv("JWT_SECRET", "super-secret-key"),
+		FirebaseCredentialsPath: getEnv("FIREBASE_CREDENTIALS_PATH", ""),
 	}
 }
 

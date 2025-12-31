@@ -31,3 +31,7 @@ go.work
 .AppleDouble
 .LSOverride
 Thumbs.db
+
+# Secrets
+service-account.json
+firebase-credentials.json

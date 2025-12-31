@@ -1,4 +1,4 @@
-package http
+package handler
 
 import (
 	"pbmap_api/src/domain"

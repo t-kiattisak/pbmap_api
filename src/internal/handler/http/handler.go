@@ -2,17 +2,20 @@ package http
 
 import (
 	"pbmap_api/src/domain"
+	"pbmap_api/src/internal/handler"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type Handler struct {
-	UserHandler *UserHandler
+	UserHandler         *handler.UserHandler
+	NotificationHandler *handler.NotificationHandler
 }
 
-func NewHandler(userHandler *UserHandler) *Handler {
+func NewHandler(userHandler *handler.UserHandler, notificationHandler *handler.NotificationHandler) *Handler {
 	return &Handler{
-		UserHandler: userHandler,
+		UserHandler:         userHandler,
+		NotificationHandler: notificationHandler,
 	}
 }
 
