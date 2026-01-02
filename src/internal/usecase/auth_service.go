@@ -93,10 +93,6 @@ func (s *authService) verifyGoogleToken(token string) (string, error) {
 }
 
 func (s *authService) verifyLineToken(token string) (string, error) {
-	if s.lineChannelID == "" || s.lineChannelID == "mock" {
-		return token, nil
-	}
-
 	apiURL := "https://api.line.me/oauth2/v2.1/verify"
 	data := url.Values{}
 	data.Set("id_token", token)
@@ -104,25 +100,23 @@ func (s *authService) verifyLineToken(token string) (string, error) {
 
 	resp, err := http.PostForm(apiURL, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to verify line token: %v", err)
+		return "", fmt.Errorf("failed to verify line id token: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("line token verification failed: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
+		return "", fmt.Errorf("line id token verification failed: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var result struct {
-		Sub string `json:"sub"`
-	}
+	var result dto.LineIDTokenResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", fmt.Errorf("failed to decode line response: %v", err)
 	}
 
 	if result.Sub == "" {
-		return "", fmt.Errorf("line token valid but sub (user id) is empty")
+		return "", fmt.Errorf("line id token valid but sub is empty")
 	}
 
 	return result.Sub, nil
