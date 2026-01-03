@@ -8,12 +8,20 @@ type LoginRequest struct {
 type SocialLoginRequest struct {
 	Provider    string `json:"provider" validate:"required,oneof=google line"` // google, line
 	AccessToken string `json:"access_token" validate:"required"`
+	DeviceID    string `json:"device_id"`   // Optional: Client can send known device_id
+	DeviceType  string `json:"device_type"` // Optional: ios, android, web
+	PushToken   string `json:"push_token"`  // Optional: FCM token
 }
 
 type LoginResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+}
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 type LineIDTokenResponse struct {
@@ -27,4 +35,11 @@ type LineIDTokenResponse struct {
 	Name    string   `json:"name"`
 	Picture string   `json:"picture"`
 	Email   string   `json:"email"`
+}
+
+type CreateUserFromSocialInput struct {
+	Provider    string
+	ProviderID  string
+	Email       string
+	DisplayName string
 }

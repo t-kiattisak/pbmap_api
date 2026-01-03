@@ -75,3 +75,42 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		Message: "Logout successfully",
 	})
 }
+
+func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
+	var req dto.RefreshTokenRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+			Status:  fiber.StatusBadRequest,
+			Message: "Cannot parse JSON",
+		})
+	}
+
+	if errors := h.validator.Validate(req); len(errors) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+			Status:  fiber.StatusBadRequest,
+			Message: "Validation failed",
+			Data:    errors,
+		})
+	}
+
+	resp, err := h.authService.RefreshToken(c.Context(), &req)
+	if err != nil {
+		status := fiber.StatusUnauthorized
+		if err.Error() == "refresh token expired" || err.Error() == "invalid refresh token" {
+			status = fiber.StatusUnauthorized
+		} else {
+			status = fiber.StatusInternalServerError
+		}
+
+		return c.Status(status).JSON(domain.APIResponse{
+			Status:  status,
+			Message: err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(domain.APIResponse{
+		Status:  fiber.StatusOK,
+		Message: "Token refreshed successfully",
+		Data:    resp,
+	})
+}
