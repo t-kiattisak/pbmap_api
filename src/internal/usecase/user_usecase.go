@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"pbmap_api/src/domain"
+	"pbmap_api/src/internal/dto"
 	"pbmap_api/src/internal/repository"
 
 	"github.com/google/uuid"
@@ -14,15 +15,20 @@ type UserUsecase interface {
 	UpdateUser(ctx context.Context, user *domain.User) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	ListUsers(ctx context.Context) ([]domain.User, error)
-	SyncUserFromSocial(ctx context.Context, provider, providerID string) (*domain.User, error)
+	SyncUserFromSocial(ctx context.Context, input dto.CreateUserFromSocialInput) (*domain.User, error)
+	UpsertDevice(ctx context.Context, device *domain.UserDevice) error
 }
 
 type userUsecase struct {
-	userRepo repository.UserRepository
+	userRepo   repository.UserRepository
+	deviceRepo repository.DeviceRepository
 }
 
-func NewUserUsecase(userRepo repository.UserRepository) UserUsecase {
-	return &userUsecase{userRepo}
+func NewUserUsecase(userRepo repository.UserRepository, deviceRepo repository.DeviceRepository) UserUsecase {
+	return &userUsecase{
+		userRepo:   userRepo,
+		deviceRepo: deviceRepo,
+	}
 }
 
 func (u *userUsecase) CreateUser(ctx context.Context, user *domain.User) error {
@@ -45,19 +51,24 @@ func (u *userUsecase) ListUsers(ctx context.Context) ([]domain.User, error) {
 	return u.userRepo.FindAll(ctx)
 }
 
-func (u *userUsecase) SyncUserFromSocial(ctx context.Context, provider, providerID string) (*domain.User, error) {
-	user, err := u.userRepo.FindBySocialID(ctx, provider, providerID)
+func (u *userUsecase) SyncUserFromSocial(ctx context.Context, input dto.CreateUserFromSocialInput) (*domain.User, error) {
+	user, err := u.userRepo.FindBySocialID(ctx, input.Provider, input.ProviderID)
 	if err == nil {
 		return user, nil
 	}
 
 	newUser := &domain.User{
-		Role: "citizen",
+		DisplayName: input.DisplayName,
+		Role:        "citizen",
+	}
+
+	if input.Email != "" {
+		newUser.Email = &input.Email
 	}
 	newUser.SocialAccounts = []domain.UserSocialAccount{
 		{
-			Provider:   provider,
-			ProviderID: providerID,
+			Provider:   input.Provider,
+			ProviderID: input.ProviderID,
 		},
 	}
 
@@ -66,4 +77,8 @@ func (u *userUsecase) SyncUserFromSocial(ctx context.Context, provider, provider
 	}
 
 	return newUser, nil
+}
+
+func (u *userUsecase) UpsertDevice(ctx context.Context, device *domain.UserDevice) error {
+	return u.deviceRepo.UpsertDevice(ctx, device)
 }

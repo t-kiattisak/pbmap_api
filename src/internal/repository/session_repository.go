@@ -11,6 +11,8 @@ import (
 type SessionRepository interface {
 	CreateSession(ctx context.Context, session *domain.UserSession) error
 	GetSessionByRefreshToken(ctx context.Context, refreshToken string) (*domain.UserSession, error)
+	GetSessionByDeviceID(ctx context.Context, userID uuid.UUID, deviceID uuid.UUID) (*domain.UserSession, error)
+	UpdateSession(ctx context.Context, session *domain.UserSession) error
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 }
 
@@ -32,6 +34,18 @@ func (r *sessionRepository) GetSessionByRefreshToken(ctx context.Context, refres
 		return nil, err
 	}
 	return &session, nil
+}
+
+func (r *sessionRepository) GetSessionByDeviceID(ctx context.Context, userID uuid.UUID, deviceID uuid.UUID) (*domain.UserSession, error) {
+	var session domain.UserSession
+	if err := r.db.WithContext(ctx).Where("user_id = ? AND device_id = ?", userID, deviceID).First(&session).Error; err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (r *sessionRepository) UpdateSession(ctx context.Context, session *domain.UserSession) error {
+	return r.db.WithContext(ctx).Save(session).Error
 }
 
 func (r *sessionRepository) RevokeSession(ctx context.Context, id uuid.UUID) error {

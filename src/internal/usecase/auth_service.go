@@ -30,16 +30,18 @@ type authService struct {
 	userUsecase    UserUsecase
 	tokenRepo      repository.TokenRepository
 	sessionRepo    repository.SessionRepository
+	tm             repository.TransactionManager
 	jwtService     *auth.JWTService
 	googleClientID string
 	lineChannelID  string
 }
 
-func NewAuthService(userUsecase UserUsecase, tokenRepo repository.TokenRepository, sessionRepo repository.SessionRepository, jwtService *auth.JWTService, cfg *config.Config) AuthService {
+func NewAuthService(userUsecase UserUsecase, tokenRepo repository.TokenRepository, sessionRepo repository.SessionRepository, tm repository.TransactionManager, jwtService *auth.JWTService, cfg *config.Config) AuthService {
 	return &authService{
 		userUsecase:    userUsecase,
 		tokenRepo:      tokenRepo,
 		sessionRepo:    sessionRepo,
+		tm:             tm,
 		jwtService:     jwtService,
 		googleClientID: cfg.GoogleClientID,
 		lineChannelID:  cfg.LineChannelID,
@@ -47,14 +49,14 @@ func NewAuthService(userUsecase UserUsecase, tokenRepo repository.TokenRepositor
 }
 
 func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginRequest) (*dto.LoginResponse, error) {
-	var providerID string
+	var providerID, email, displayName string
 	var err error
 
 	switch req.Provider {
 	case "google":
-		providerID, err = s.verifyGoogleToken(req.AccessToken)
+		providerID, email, displayName, err = s.verifyGoogleToken(req.AccessToken)
 	case "line":
-		providerID, err = s.verifyLineToken(req.AccessToken)
+		providerID, email, displayName, err = s.verifyLineToken(req.AccessToken)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", req.Provider)
 	}
@@ -63,7 +65,12 @@ func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginR
 		return nil, fmt.Errorf("provider verification failed: %v", err)
 	}
 
-	user, err := s.userUsecase.SyncUserFromSocial(ctx, req.Provider, providerID)
+	user, err := s.userUsecase.SyncUserFromSocial(ctx, dto.CreateUserFromSocialInput{
+		Provider:    req.Provider,
+		ProviderID:  providerID,
+		Email:       email,
+		DisplayName: displayName,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sync user: %v", err)
 	}
@@ -78,21 +85,66 @@ func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginR
 		return nil, fmt.Errorf("failed to store app token: %v", err)
 	}
 
-	// Generate and Store Refresh Token
 	refreshToken, err := s.generateRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %v", err)
 	}
 
-	session := &domain.UserSession{
-		ID:           uuid.New(),
-		UserID:       user.ID,
-		RefreshToken: refreshToken,
-		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour), // 30 days
-	}
+	err = s.tm.Do(ctx, func(ctx context.Context) error {
+		deviceID := uuid.Nil
+		if req.DeviceID != "" || req.DeviceType != "" || req.PushToken != "" {
+			provider := "apns"
+			if req.DeviceType == "android" {
+				provider = "fcm"
+			}
 
-	if err := s.sessionRepo.CreateSession(ctx, session); err != nil {
-		return nil, fmt.Errorf("failed to create session: %v", err)
+			device := &domain.UserDevice{
+				UserID:     user.ID,
+				Provider:   provider,
+				DeviceType: req.DeviceType,
+				PushToken:  req.PushToken,
+				LastSeen:   time.Now(),
+			}
+
+			if err := s.userUsecase.UpsertDevice(ctx, device); err != nil {
+				return fmt.Errorf("failed to register device: %v", err)
+			}
+
+			if device.ID != uuid.Nil {
+				deviceID = device.ID
+			}
+		}
+
+		var existingSession *domain.UserSession
+		if deviceID != uuid.Nil {
+			existingSession, _ = s.sessionRepo.GetSessionByDeviceID(ctx, user.ID, deviceID)
+		}
+
+		if existingSession != nil {
+			existingSession.RefreshToken = refreshToken
+			existingSession.ExpiresAt = time.Now().Add(30 * 24 * time.Hour)
+
+			if err := s.sessionRepo.UpdateSession(ctx, existingSession); err != nil {
+				return fmt.Errorf("failed to update session: %v", err)
+			}
+		} else {
+			session := &domain.UserSession{
+				ID:           uuid.New(),
+				UserID:       user.ID,
+				RefreshToken: refreshToken,
+				DeviceID:     deviceID,
+				ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
+			}
+
+			if err := s.sessionRepo.CreateSession(ctx, session); err != nil {
+				return fmt.Errorf("failed to create session: %v", err)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &dto.LoginResponse{
@@ -103,16 +155,21 @@ func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginR
 	}, nil
 }
 
-func (s *authService) verifyGoogleToken(token string) (string, error) {
+func (s *authService) verifyGoogleToken(token string) (string, string, string, error) {
 	payload, err := idtoken.Validate(context.Background(), token, s.googleClientID)
 	if err != nil {
-		return "", fmt.Errorf("invalid google token: %v", err)
+		return "", "", "", fmt.Errorf("invalid google token: %v", err)
 	}
 
-	return payload.Subject, nil
+	fmt.Println(payload)
+
+	email, _ := payload.Claims["email"].(string)
+	name, _ := payload.Claims["name"].(string)
+
+	return payload.Subject, email, name, nil
 }
 
-func (s *authService) verifyLineToken(token string) (string, error) {
+func (s *authService) verifyLineToken(token string) (string, string, string, error) {
 	apiURL := "https://api.line.me/oauth2/v2.1/verify"
 	data := url.Values{}
 	data.Set("id_token", token)
@@ -120,26 +177,26 @@ func (s *authService) verifyLineToken(token string) (string, error) {
 
 	resp, err := http.PostForm(apiURL, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to verify line id token: %v", err)
+		return "", "", "", fmt.Errorf("failed to verify line id token: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("line id token verification failed: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
+		return "", "", "", fmt.Errorf("line id token verification failed: status=%d, body=%s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var result dto.LineIDTokenResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode line response: %v", err)
+		return "", "", "", fmt.Errorf("failed to decode line response: %v", err)
 	}
 
 	if result.Sub == "" {
-		return "", fmt.Errorf("line id token valid but sub is empty")
+		return "", "", "", fmt.Errorf("line id token valid but sub is empty")
 	}
 
-	return result.Sub, nil
+	return result.Sub, result.Email, result.Name, nil
 }
 
 func (s *authService) Logout(ctx context.Context, userID uuid.UUID) error {

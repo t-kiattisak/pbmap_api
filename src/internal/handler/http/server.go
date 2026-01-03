@@ -48,7 +48,8 @@ func NewServer(cfg *config.Config, handler *Handler, jwtService *auth.JWTService
 
 func Run(cfg *config.Config, db *gorm.DB) {
 	userRepo := repository.NewUserRepository(db)
-	userUsecase := usecase.NewUserUsecase(userRepo)
+	deviceRepo := repository.NewDeviceRepository(db)
+	userUsecase := usecase.NewUserUsecase(userRepo, deviceRepo)
 
 	fcmService, err := usecase.NewFCMService(cfg)
 	if err != nil {
@@ -70,8 +71,9 @@ func Run(cfg *config.Config, db *gorm.DB) {
 	jwtService := auth.NewJWTService(cfg.JWTSecret)
 
 	sessionRepo := repository.NewSessionRepository(db)
+	tm := repository.NewTransactionManager(db)
 
-	authService := usecase.NewAuthService(userUsecase, tokenRepo, sessionRepo, jwtService, cfg)
+	authService := usecase.NewAuthService(userUsecase, tokenRepo, sessionRepo, tm, jwtService, cfg)
 	authHandler := handler.NewAuthHandler(authService, v)
 
 	userHandler := handler.NewUserHandler(userUsecase, v, jwtService)
