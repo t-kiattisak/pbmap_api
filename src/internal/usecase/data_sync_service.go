@@ -9,20 +9,26 @@ type DataSyncService interface {
 	SyncAndNotify(ctx context.Context) error
 }
 
-type dataSyncService struct {
-	fcmService FCMService
+type ExternalDataProvider interface {
+	FetchExternalData(ctx context.Context) (*ExternalDataStub, error)
 }
 
-func NewDataSyncService(fcmService FCMService) DataSyncService {
+type dataSyncService struct {
+	fcmService           FCMService
+	externalDataProvider ExternalDataProvider
+}
+
+func NewDataSyncService(fcmService FCMService, provider ExternalDataProvider) DataSyncService {
 	return &dataSyncService{
-		fcmService: fcmService,
+		fcmService:           fcmService,
+		externalDataProvider: provider,
 	}
 }
 
 func (s *dataSyncService) SyncAndNotify(ctx context.Context) error {
 	fmt.Println("[DataSync] Starting sync job...")
 
-	data, err := s.fetchExternalData()
+	data, err := s.externalDataProvider.FetchExternalData(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch data: %v", err)
 	}
@@ -47,11 +53,6 @@ type ExternalDataStub struct {
 type CalculationResult struct {
 	ShouldNotify bool
 	Message      string
-}
-
-func (s *dataSyncService) fetchExternalData() (*ExternalDataStub, error) {
-	fmt.Println("[DataSync] Fetching external api...")
-	return &ExternalDataStub{Value: 100}, nil
 }
 
 func (s *dataSyncService) calculateLogic(data *ExternalDataStub) *CalculationResult {

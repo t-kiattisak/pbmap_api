@@ -41,7 +41,6 @@ func (s *appScheduler) Stop() {
 }
 
 func (s *appScheduler) registerJobs() {
-	// Schedule: Run every 10 seconds (for testing purpose).
 	// Cron Spec: "@every 10s"
 	_, err := s.cron.AddFunc("@every 10m", func() {
 		ctx := context.Background()
