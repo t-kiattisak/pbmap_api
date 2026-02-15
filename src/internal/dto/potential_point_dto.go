@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
+
+	"pbmap_api/src/internal/domain/entities"
 )
 
 type CreatePotentialPointInput struct {
@@ -38,4 +40,20 @@ type PotentialPointResponse struct {
 type Location struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+}
+
+func ToPotentialPointResponse(pp *entities.PotentialPoint) PotentialPointResponse {
+	return PotentialPointResponse{
+		ID:   pp.ID,
+		Name: pp.Name,
+		Type: pp.Type,
+		Location: Location{
+			Latitude:  pp.Latitude,
+			Longitude: pp.Longitude,
+		},
+		Properties: pp.Properties,
+		CreatorID:  &pp.CreatedBy,
+		CreatedAt:  pp.CreatedAt,
+		UpdatedAt:  pp.UpdatedAt,
+	}
 }
