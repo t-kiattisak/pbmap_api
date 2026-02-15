@@ -1,15 +1,4 @@
-package domain
-
-import "context"
-
-// FCMService is the interface for sending push notifications (FCM).
-// Implemented by repository (fcm_repo).
-type FCMService interface {
-	BroadcastNotification(ctx context.Context, title, body string) error
-	SendAlarm(ctx context.Context, req *AlarmDispatchRequest) error
-	SubscribeToTopic(ctx context.Context, tokens []string, topic string) (*TopicManagementResponse, error)
-	UnsubscribeFromTopic(ctx context.Context, tokens []string, topic string) (*TopicManagementResponse, error)
-}
+package entities
 
 // AlarmDispatchRequest is the payload for dispatching an alarm (used by delivery + usecase + repo).
 type AlarmDispatchRequest struct {

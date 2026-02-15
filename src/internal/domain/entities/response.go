@@ -1,4 +1,4 @@
-package domain
+package entities
 
 type APIResponse struct {
 	Status  int    `json:"status"`

@@ -4,28 +4,28 @@ import (
 	"pbmap_api/src/internal/domain/entities"
 	"pbmap_api/src/internal/dto"
 	"pbmap_api/src/internal/usecase"
-	"pbmap_api/src/pkg/auth"
 	"pbmap_api/src/pkg/validator"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
-// UserHandler handles user CRUD.
-type UserHandler struct {
-	usecase    usecase.UserUsecase
-	validator  *validator.Wrapper
-	jwtService *auth.JWTService
+type PotentialPointHandler struct {
+	usecase   usecase.PotentialPointUsecase
+	validator *validator.Wrapper
 }
 
-// NewUserHandler creates the user HTTP handler.
-func NewUserHandler(usecase usecase.UserUsecase, v *validator.Wrapper, jwtService *auth.JWTService) *UserHandler {
-	return &UserHandler{usecase: usecase, validator: v, jwtService: jwtService}
+// NewPotentialPointHandler creates the handler.
+func NewPotentialPointHandler(usecase usecase.PotentialPointUsecase, v *validator.Wrapper) *PotentialPointHandler {
+	return &PotentialPointHandler{
+		usecase:   usecase,
+		validator: v,
+	}
 }
 
-// Create handles POST /api/users.
-func (h *UserHandler) Create(c *fiber.Ctx) error {
-	var req dto.CreateUserRequest
+// Create handles POST /api/v1/potential-points
+func (h *PotentialPointHandler) Create(c *fiber.Ctx) error {
+	var req dto.CreatePotentialPointInput
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
 			Status:  fiber.StatusBadRequest,
@@ -41,13 +41,13 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	user := entities.User{
-		Email:       &req.Email,
-		DisplayName: req.DisplayName,
-		Role:        req.Role,
+	var creatorID *uuid.UUID
+	if userID, ok := c.Locals("user_id").(uuid.UUID); ok {
+		creatorID = &userID
 	}
 
-	if err := h.usecase.CreateUser(c.Context(), &user); err != nil {
+	pp, err := h.usecase.Create(c.Context(), req, creatorID)
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(entities.APIResponse{
 			Status:  fiber.StatusInternalServerError,
 			Message: err.Error(),
@@ -56,13 +56,13 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(entities.APIResponse{
 		Status:  fiber.StatusCreated,
-		Message: "User created successfully",
-		Data:    user,
+		Message: "Potential point created successfully",
+		Data:    pp,
 	})
 }
 
-// Get handles GET /api/users/:id.
-func (h *UserHandler) Get(c *fiber.Ctx) error {
+// Get handles GET /api/v1/potential-points/:id
+func (h *PotentialPointHandler) Get(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
@@ -71,23 +71,23 @@ func (h *UserHandler) Get(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.usecase.GetUser(c.Context(), id)
+	pp, err := h.usecase.FindByID(c.Context(), id)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(entities.APIResponse{
 			Status:  fiber.StatusNotFound,
-			Message: "User not found",
+			Message: "Potential point not found",
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
-		Message: "User retrieved successfully",
-		Data:    user,
+		Message: "Potential point retrieved successfully",
+		Data:    pp,
 	})
 }
 
-// Update handles PUT /api/users/:id.
-func (h *UserHandler) Update(c *fiber.Ctx) error {
+// Update handles PUT /api/v1/potential-points/:id
+func (h *PotentialPointHandler) Update(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
@@ -96,16 +96,16 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 		})
 	}
 
-	var user entities.User
-	if err := c.BodyParser(&user); err != nil {
+	var req dto.UpdatePotentialPointInput
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
 			Status:  fiber.StatusBadRequest,
 			Message: err.Error(),
 		})
 	}
 
-	user.ID = id
-	if err := h.usecase.UpdateUser(c.Context(), &user); err != nil {
+	pp, err := h.usecase.Update(c.Context(), id, req)
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(entities.APIResponse{
 			Status:  fiber.StatusInternalServerError,
 			Message: err.Error(),
@@ -114,13 +114,13 @@ func (h *UserHandler) Update(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
-		Message: "User updated successfully",
-		Data:    user,
+		Message: "Potential point updated successfully",
+		Data:    pp,
 	})
 }
 
-// Delete handles DELETE /api/users/:id.
-func (h *UserHandler) Delete(c *fiber.Ctx) error {
+// Delete handles DELETE /api/v1/potential-points/:id
+func (h *PotentialPointHandler) Delete(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
@@ -129,7 +129,7 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.usecase.DeleteUser(c.Context(), id); err != nil {
+	if err := h.usecase.Delete(c.Context(), id); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(entities.APIResponse{
 			Status:  fiber.StatusInternalServerError,
 			Message: err.Error(),
@@ -138,13 +138,13 @@ func (h *UserHandler) Delete(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
-		Message: "User deleted successfully",
+		Message: "Potential point deleted successfully",
 	})
 }
 
-// List handles GET /api/users.
-func (h *UserHandler) List(c *fiber.Ctx) error {
-	users, err := h.usecase.ListUsers(c.Context())
+// List handles GET /api/v1/potential-points
+func (h *PotentialPointHandler) List(c *fiber.Ctx) error {
+	pps, err := h.usecase.FindAll(c.Context())
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(entities.APIResponse{
 			Status:  fiber.StatusInternalServerError,
@@ -154,32 +154,7 @@ func (h *UserHandler) List(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
-		Message: "Users retrieved successfully",
-		Data:    users,
-	})
-}
-
-// Me handles GET /api/users/me.
-func (h *UserHandler) Me(c *fiber.Ctx) error {
-	userID, ok := c.Locals("user_id").(uuid.UUID)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(entities.APIResponse{
-			Status:  fiber.StatusUnauthorized,
-			Message: "Unauthorized",
-		})
-	}
-
-	user, err := h.usecase.GetUser(c.Context(), userID)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(entities.APIResponse{
-			Status:  fiber.StatusNotFound,
-			Message: "User not found",
-		})
-	}
-
-	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
-		Status:  fiber.StatusOK,
-		Message: "Current user retrieved successfully",
-		Data:    user,
+		Message: "Potential points retrieved successfully",
+		Data:    pps,
 	})
 }

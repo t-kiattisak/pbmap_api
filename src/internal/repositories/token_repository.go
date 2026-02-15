@@ -1,28 +1,20 @@
-package repository
+package repositories
 
 import (
 	"context"
 	"fmt"
 	"time"
 
+	"pbmap_api/src/internal/domain/repositories"
+
 	"github.com/redis/go-redis/v9"
 )
-
-type TokenRepository interface {
-	SetToken(ctx context.Context, userID string, token string, ttl time.Duration) error
-	GetToken(ctx context.Context, userID string) (string, error)
-	DeleteToken(ctx context.Context, userID string) error
-
-	SetAppToken(ctx context.Context, userID string, token string, ttl time.Duration) error
-	GetAppToken(ctx context.Context, userID string) (string, error)
-	DeleteAppToken(ctx context.Context, userID string) error
-}
 
 type tokenRepository struct {
 	client *redis.Client
 }
 
-func NewTokenRepository(client *redis.Client) TokenRepository {
+func NewTokenRepository(client *redis.Client) repositories.TokenRepository {
 	return &tokenRepository{
 		client: client,
 	}

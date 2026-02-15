@@ -9,9 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"pbmap_api/src/internal/domain"
+	"pbmap_api/src/internal/domain/entities"
+	"pbmap_api/src/internal/domain/repositories"
 	"pbmap_api/src/internal/dto"
-	"pbmap_api/src/internal/repository"
+	implRepositories "pbmap_api/src/internal/repositories"
 	"pbmap_api/src/pkg/auth"
 	"pbmap_api/src/pkg/config"
 	"time"
@@ -28,15 +29,15 @@ type AuthService interface {
 
 type authService struct {
 	userUsecase    UserUsecase
-	tokenRepo      repository.TokenRepository
-	sessionRepo    repository.SessionRepository
-	tm             repository.TransactionManager
+	tokenRepo      repositories.TokenRepository
+	sessionRepo    repositories.SessionRepository
+	tm             implRepositories.TransactionManager
 	jwtService     *auth.JWTService
 	googleClientID string
 	lineChannelID  string
 }
 
-func NewAuthService(userUsecase UserUsecase, tokenRepo repository.TokenRepository, sessionRepo repository.SessionRepository, tm repository.TransactionManager, jwtService *auth.JWTService, cfg *config.Config) AuthService {
+func NewAuthService(userUsecase UserUsecase, tokenRepo repositories.TokenRepository, sessionRepo repositories.SessionRepository, tm implRepositories.TransactionManager, jwtService *auth.JWTService, cfg *config.Config) AuthService {
 	return &authService{
 		userUsecase:    userUsecase,
 		tokenRepo:      tokenRepo,
@@ -98,7 +99,7 @@ func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginR
 				provider = "fcm"
 			}
 
-			device := &domain.UserDevice{
+			device := &entities.UserDevice{
 				UserID:     user.ID,
 				Provider:   provider,
 				DeviceType: req.DeviceType,
@@ -115,7 +116,7 @@ func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginR
 			}
 		}
 
-		var existingSession *domain.UserSession
+		var existingSession *entities.UserSession
 		if deviceID != uuid.Nil {
 			existingSession, _ = s.sessionRepo.GetSessionByDeviceID(ctx, user.ID, deviceID)
 		}
@@ -128,7 +129,7 @@ func (s *authService) LoginWithSocial(ctx context.Context, req *dto.SocialLoginR
 				return fmt.Errorf("failed to update session: %v", err)
 			}
 		} else {
-			session := &domain.UserSession{
+			session := &entities.UserSession{
 				ID:           uuid.New(),
 				UserID:       user.ID,
 				RefreshToken: refreshToken,
@@ -238,7 +239,7 @@ func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenReq
 		return nil, fmt.Errorf("failed to generate refresh token: %v", err)
 	}
 
-	newSession := &domain.UserSession{
+	newSession := &entities.UserSession{
 		ID:           uuid.New(),
 		UserID:       user.ID,
 		RefreshToken: newRefreshToken,

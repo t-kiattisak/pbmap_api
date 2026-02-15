@@ -1,11 +1,12 @@
-package repository
+package repositories
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"pbmap_api/src/internal/domain"
+	"pbmap_api/src/internal/domain/entities"
+	"pbmap_api/src/internal/domain/repositories"
 	"pbmap_api/src/pkg/config"
 
 	firebase "firebase.google.com/go/v4"
@@ -13,15 +14,15 @@ import (
 	"google.golang.org/api/option"
 )
 
-// Ensure fcmRepo implements domain.FCMService.
-var _ domain.FCMService = (*fcmRepo)(nil)
+// Ensure fcmRepo implements repositories.FCMRepository.
+var _ repositories.FCMRepository = (*fcmRepo)(nil)
 
 type fcmRepo struct {
 	client *messaging.Client
 }
 
-// NewFCMRepo creates the FCM repository (implements domain.FCMService).
-func NewFCMRepo(cfg *config.Config) (domain.FCMService, error) {
+// NewFCMRepo creates the FCM repository (implements repositories.FCMRepository).
+func NewFCMRepo(cfg *config.Config) (repositories.FCMRepository, error) {
 	if cfg.FirebaseCredentialsPath == "" {
 		return &fcmRepo{}, nil
 	}
@@ -67,7 +68,7 @@ func (s *fcmRepo) BroadcastNotification(ctx context.Context, title, body string)
 	return nil
 }
 
-func (s *fcmRepo) SendAlarm(ctx context.Context, req *domain.AlarmDispatchRequest) error {
+func (s *fcmRepo) SendAlarm(ctx context.Context, req *entities.AlarmDispatchRequest) error {
 	if s.client == nil {
 		return fmt.Errorf("firebase client is not initialized")
 	}
@@ -96,14 +97,14 @@ func (s *fcmRepo) SendAlarm(ctx context.Context, req *domain.AlarmDispatchReques
 	return nil
 }
 
-func (s *fcmRepo) SubscribeToTopic(ctx context.Context, tokens []string, topic string) (*domain.TopicManagementResponse, error) {
+func (s *fcmRepo) SubscribeToTopic(ctx context.Context, tokens []string, topic string) (*entities.TopicManagementResponse, error) {
 	if s.client == nil {
 		return nil, fmt.Errorf("firebase client is not initialized")
 	}
 
-	result := &domain.TopicManagementResponse{
+	result := &entities.TopicManagementResponse{
 		SuccessTokens: make([]string, 0),
-		FailureTokens: make([]domain.TopicManagementError, 0),
+		FailureTokens: make([]entities.TopicManagementError, 0),
 	}
 	if len(tokens) == 0 {
 		return result, nil
@@ -126,7 +127,7 @@ func (s *fcmRepo) SubscribeToTopic(ctx context.Context, tokens []string, topic s
 		if response.FailureCount > 0 {
 			for _, errWrap := range response.Errors {
 				failedIndices[errWrap.Index] = errWrap.Reason
-				result.FailureTokens = append(result.FailureTokens, domain.TopicManagementError{
+				result.FailureTokens = append(result.FailureTokens, entities.TopicManagementError{
 					Token:  batch[errWrap.Index],
 					Reason: errWrap.Reason,
 				})
@@ -141,14 +142,14 @@ func (s *fcmRepo) SubscribeToTopic(ctx context.Context, tokens []string, topic s
 	return result, nil
 }
 
-func (s *fcmRepo) UnsubscribeFromTopic(ctx context.Context, tokens []string, topic string) (*domain.TopicManagementResponse, error) {
+func (s *fcmRepo) UnsubscribeFromTopic(ctx context.Context, tokens []string, topic string) (*entities.TopicManagementResponse, error) {
 	if s.client == nil {
 		return nil, fmt.Errorf("firebase client is not initialized")
 	}
 
-	result := &domain.TopicManagementResponse{
+	result := &entities.TopicManagementResponse{
 		SuccessTokens: make([]string, 0),
-		FailureTokens: make([]domain.TopicManagementError, 0),
+		FailureTokens: make([]entities.TopicManagementError, 0),
 	}
 	if len(tokens) == 0 {
 		return result, nil
@@ -171,7 +172,7 @@ func (s *fcmRepo) UnsubscribeFromTopic(ctx context.Context, tokens []string, top
 		if response.FailureCount > 0 {
 			for _, errWrap := range response.Errors {
 				failedIndices[errWrap.Index] = errWrap.Reason
-				result.FailureTokens = append(result.FailureTokens, domain.TopicManagementError{
+				result.FailureTokens = append(result.FailureTokens, entities.TopicManagementError{
 					Token:  batch[errWrap.Index],
 					Reason: errWrap.Reason,
 				})

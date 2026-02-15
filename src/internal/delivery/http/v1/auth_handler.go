@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"pbmap_api/src/internal/domain"
+	"pbmap_api/src/internal/domain/entities"
 	"pbmap_api/src/internal/dto"
 	"pbmap_api/src/internal/usecase"
 	"pbmap_api/src/pkg/validator"
@@ -25,14 +25,14 @@ func NewAuthHandler(authUsecase usecase.AuthService, v *validator.Wrapper) *Auth
 func (h *AuthHandler) LoginWithSocial(c *fiber.Ctx) error {
 	var req dto.SocialLoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
 			Status:  fiber.StatusBadRequest,
 			Message: "Cannot parse JSON",
 		})
 	}
 
 	if errors := h.validator.Validate(req); len(errors) > 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
 			Status:  fiber.StatusBadRequest,
 			Message: "Validation failed",
 			Data:    errors,
@@ -41,13 +41,13 @@ func (h *AuthHandler) LoginWithSocial(c *fiber.Ctx) error {
 
 	resp, err := h.authUsecase.LoginWithSocial(c.Context(), &req)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(entities.APIResponse{
 			Status:  fiber.StatusUnauthorized,
 			Message: err.Error(),
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(domain.APIResponse{
+	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
 		Message: "Login successfully",
 		Data:    resp,
@@ -58,20 +58,20 @@ func (h *AuthHandler) LoginWithSocial(c *fiber.Ctx) error {
 func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uuid.UUID)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(entities.APIResponse{
 			Status:  fiber.StatusUnauthorized,
 			Message: "Unauthorized",
 		})
 	}
 
 	if err := h.authUsecase.Logout(c.Context(), userID); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(entities.APIResponse{
 			Status:  fiber.StatusInternalServerError,
 			Message: err.Error(),
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(domain.APIResponse{
+	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
 		Message: "Logout successfully",
 	})
@@ -81,14 +81,14 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 	var req dto.RefreshTokenRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
 			Status:  fiber.StatusBadRequest,
 			Message: "Cannot parse JSON",
 		})
 	}
 
 	if errors := h.validator.Validate(req); len(errors) > 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(domain.APIResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(entities.APIResponse{
 			Status:  fiber.StatusBadRequest,
 			Message: "Validation failed",
 			Data:    errors,
@@ -101,13 +101,13 @@ func (h *AuthHandler) RefreshToken(c *fiber.Ctx) error {
 		if err.Error() != "refresh token expired" && err.Error() != "invalid refresh token" {
 			status = fiber.StatusInternalServerError
 		}
-		return c.Status(status).JSON(domain.APIResponse{
+		return c.Status(status).JSON(entities.APIResponse{
 			Status:  status,
 			Message: err.Error(),
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(domain.APIResponse{
+	return c.Status(fiber.StatusOK).JSON(entities.APIResponse{
 		Status:  fiber.StatusOK,
 		Message: "Token refreshed successfully",
 		Data:    resp,

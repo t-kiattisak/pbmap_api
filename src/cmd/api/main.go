@@ -5,8 +5,8 @@ import (
 
 	"pbmap_api/src/internal/database"
 	"pbmap_api/src/internal/delivery/http"
-	"pbmap_api/src/internal/delivery/http/v1"
-	"pbmap_api/src/internal/repository"
+	v1 "pbmap_api/src/internal/delivery/http/v1"
+	"pbmap_api/src/internal/repositories"
 	"pbmap_api/src/internal/usecase"
 	"pbmap_api/src/internal/worker"
 	"pbmap_api/src/pkg/auth"
@@ -30,7 +30,7 @@ func main() {
 	cleanupJobs := worker.StartBackgroundJobs(cfg)
 	defer cleanupJobs()
 
-	fcmRepo, err := repository.NewFCMRepo(cfg)
+	fcmRepo, err := repositories.NewFCMRepo(cfg)
 	if err != nil {
 		fmt.Printf("Warning: Failed to initialize FCM Repository: %v\n", err)
 	}
@@ -44,18 +44,22 @@ func main() {
 
 	v := validator.New()
 
-	userRepo := repository.NewUserRepository(db)
-	deviceRepo := repository.NewDeviceRepository(db)
+	userRepo := repositories.NewUserRepository(db)
+	deviceRepo := repositories.NewDeviceRepository(db)
 	userUsecase := usecase.NewUserUsecase(userRepo, deviceRepo)
 
 	alarmUsecase := usecase.NewAlarmUsecase(fcmRepo)
 	notificationUsecase := usecase.NewNotificationUsecase(fcmRepo)
 
-	tokenRepo := repository.NewTokenRepository(redisClient)
+	tokenRepo := repositories.NewTokenRepository(redisClient)
 	jwtService := auth.NewJWTService(cfg.JWTSecret)
-	sessionRepo := repository.NewSessionRepository(db)
-	tm := repository.NewTransactionManager(db)
+	sessionRepo := repositories.NewSessionRepository(db)
+	tm := repositories.NewTransactionManager(db)
 	authUsecase := usecase.NewAuthService(userUsecase, tokenRepo, sessionRepo, tm, jwtService, cfg)
+
+	ppRepo := repositories.NewPotentialPointRepository(db)
+	ppUsecase := usecase.NewPotentialPointUsecase(ppRepo)
+	ppHandler := v1.NewPotentialPointHandler(ppUsecase, v)
 
 	alarmHandler := v1.NewAlarmHandler(alarmUsecase, v)
 	authHandler := v1.NewAuthHandler(authUsecase, v)
@@ -63,10 +67,11 @@ func main() {
 	notificationHandler := v1.NewNotificationHandler(notificationUsecase, v)
 
 	handlers := &http.Handlers{
-		Alarm:        alarmHandler,
-		Auth:         authHandler,
-		User:         userHandler,
-		Notification: notificationHandler,
+		Alarm:          alarmHandler,
+		Auth:           authHandler,
+		User:           userHandler,
+		Notification:   notificationHandler,
+		PotentialPoint: ppHandler,
 	}
 
 	app := http.Router(handlers, jwtService, tokenRepo)
